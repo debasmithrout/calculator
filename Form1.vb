@@ -1,4 +1,5 @@
-﻿Public Class Form1
+﻿Imports Microsoft.Win32
+Public Class Form1
 
     Private waitingForOperand As Boolean = True
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
@@ -13,7 +14,9 @@
                 ctrl.TabStop = False
             End If
         Next
+        AddHandler SystemEvents.UserPreferenceChanged, AddressOf SystemThemeChanged
 
+        ApplySystemTheme()
     End Sub
 
     Private Sub Button4_Click(sender As Object, e As EventArgs) Handles Button4.Click
@@ -197,6 +200,119 @@
 
     End Function
 
+    ' Detect Windows system theme
+    Private Function IsSystemDarkMode() As Boolean
+
+        Try
+            Using key As RegistryKey = Registry.CurrentUser.OpenSubKey(
+            "Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
+
+                If key Is Nothing Then Return False
+
+                Dim value As Object = key.GetValue("SystemUsesLightTheme")
+
+                If value Is Nothing Then Return False
+
+                Return Convert.ToInt32(value) = 0
+
+            End Using
+
+        Catch
+            Return False
+        End Try
+
+    End Function
+
+
+    ' Apply Dark or Light theme
+    Private Sub ApplySystemTheme()
+
+        Dim darkMode As Boolean = IsSystemDarkMode()
+
+        If darkMode Then
+
+            Me.BackColor = Color.FromArgb(30, 30, 30)
+            Me.ForeColor = Color.White
+
+            TextBox1.BackColor = Color.FromArgb(22, 22, 22)
+            TextBox1.ForeColor = Color.White
+
+        Else
+
+            Me.BackColor = Color.FromArgb(245, 245, 245)
+            Me.ForeColor = Color.FromArgb(30, 30, 30)
+
+            TextBox1.BackColor = Color.White
+            TextBox1.ForeColor = Color.Black
+
+        End If
+
+        ' Apply theme to calculator buttons
+        For Each ctrl As Control In Me.Controls
+
+            If TypeOf ctrl Is Button Then
+
+                Dim btn As Button = DirectCast(ctrl, Button)
+
+                btn.UseVisualStyleBackColor = False
+                btn.FlatStyle = FlatStyle.Flat
+                btn.FlatAppearance.BorderSize = 1
+
+                If btn.Text = "=" Then
+
+                    btn.BackColor = Color.FromArgb(0, 120, 215)
+                    btn.ForeColor = Color.White
+                    btn.FlatAppearance.BorderColor = Color.FromArgb(0, 120, 215)
+
+                ElseIf darkMode Then
+
+                    btn.BackColor = Color.FromArgb(48, 48, 48)
+                    btn.ForeColor = Color.White
+                    btn.FlatAppearance.BorderColor = Color.FromArgb(75, 75, 75)
+
+                Else
+
+                    btn.BackColor = Color.FromArgb(235, 235, 235)
+                    btn.ForeColor = Color.FromArgb(30, 30, 30)
+                    btn.FlatAppearance.BorderColor = Color.FromArgb(200, 200, 200)
+
+                End If
+
+            End If
+
+        Next
+
+    End Sub
+
+
+    ' Update theme when Windows theme changes
+    Private Sub SystemThemeChanged(sender As Object, e As UserPreferenceChangedEventArgs)
+
+        If Me.IsDisposed OrElse Not Me.IsHandleCreated Then Return
+
+        Try
+            Me.BeginInvoke(New MethodInvoker(AddressOf ApplySystemTheme))
+        Catch ex As InvalidOperationException
+            ' Form is closing
+        End Try
+
+    End Sub
+
+
+    ' Refresh theme when calculator becomes active
+    Private Sub Form1_Activated(sender As Object, e As EventArgs) Handles MyBase.Activated
+
+        ApplySystemTheme()
+
+    End Sub
+
+
+    ' Remove system event handler when form closes
+    Private Sub Form1_FormClosed(sender As Object, e As FormClosedEventArgs) Handles MyBase.FormClosed
+
+        RemoveHandler SystemEvents.UserPreferenceChanged, AddressOf SystemThemeChanged
+
+    End Sub
     Private Sub AddKeyboardNumber(number As String)
 
         If TextBox1.Text = "Error" Then
