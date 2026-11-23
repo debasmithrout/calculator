@@ -1,5 +1,4 @@
-﻿
-Imports System.Data
+﻿Imports System.Data
 Imports System.Globalization
 Imports System.Collections.Generic
 Imports System.Drawing
@@ -56,6 +55,7 @@ Public Class Form1
     Private navigationMenu As ContextMenuStrip
     Private trigonometryMenu As ContextMenuStrip
     Private functionMenu As ContextMenuStrip
+    Private sidebarOverlayHost As Panel
     Private standardMenuItem As ToolStripMenuItem
     Private scientificMenuItem As ToolStripMenuItem
 
@@ -151,6 +151,17 @@ Public Class Form1
         appLayout.Controls.Add(sidebarPanel, 1, 0)
 
         Me.Controls.Add(appLayout)
+
+        ' Compact-window sidebar host. It overlays the calculator instead of
+        ' taking away width from the keypad.
+        sidebarOverlayHost = New Panel With {
+            .Visible = False,
+            .BorderStyle = BorderStyle.FixedSingle,
+            .BackColor = Me.BackColor,
+            .Anchor = AnchorStyles.Bottom Or AnchorStyles.Left Or AnchorStyles.Right
+        }
+        Me.Controls.Add(sidebarOverlayHost)
+
         appLayout.BringToFront()
 
         SetCalculatorMode(calculatorMode)
@@ -450,9 +461,6 @@ Public Class Form1
     End Sub
 
 
-    ' SCIENTIFIC DROPDOWN MENUS
-    ' Menus are created once and reused instead of being disposed after every click.
-
     Private Sub BuildScientificMenus()
 
         trigonometryMenu = New ContextMenuStrip With {
@@ -484,14 +492,11 @@ Public Class Form1
         End If
 
         For Each functionName As String In names
-
             Dim item As New ToolStripMenuItem(functionName) With {
                 .Tag = functionName
             }
-
             AddHandler item.Click, AddressOf ScientificMenuItem_Click
             trigonometryMenu.Items.Add(item)
-
         Next
 
         ApplyMenuTheme(trigonometryMenu)
@@ -524,14 +529,11 @@ Public Class Form1
         }
 
         For Each pair As KeyValuePair(Of String, String) In functions
-
             Dim item As New ToolStripMenuItem(pair.Key) With {
                 .Tag = pair.Value
             }
-
             AddHandler item.Click, AddressOf ScientificMenuItem_Click
             functionMenu.Items.Add(item)
-
         Next
 
         ApplyMenuTheme(functionMenu)
@@ -1739,7 +1741,7 @@ Public Class Form1
         calculatorLayout.RowStyles(4).Height = If(scientific, 40, 0)
         calculatorLayout.RowStyles(5).Height = 58
 
-        If scientific Then
+        If scientific AndAlso Not IsCompactWindow() Then
             SetSidebarVisible(True)
             ShowSidebarHistory()
         Else
@@ -1748,19 +1750,115 @@ Public Class Form1
 
         UpdateNavigationMenu()
         calculatorLayout.PerformLayout()
+        UpdateResponsiveSidebarLayout()
 
     End Sub
+
+
+    Private Function IsCompactWindow() As Boolean
+        Return Me.ClientSize.Width < 900
+    End Function
 
 
     Private Sub SetSidebarVisible(visible As Boolean)
 
         sidebarVisible = visible
-        sidebarPanel.Visible = visible
 
-        appLayout.ColumnStyles(1).SizeType = SizeType.Absolute
-        appLayout.ColumnStyles(1).Width = If(visible, 300, 0)
+        If sidebarPanel IsNot Nothing Then
+            sidebarPanel.Visible = visible
+        End If
+
+        UpdateResponsiveSidebarLayout()
+
+    End Sub
+
+
+    Private Sub UpdateResponsiveSidebarLayout()
+
+        If appLayout Is Nothing OrElse sidebarPanel Is Nothing OrElse sidebarOverlayHost Is Nothing Then Return
+
+        Dim compact As Boolean = IsCompactWindow()
+
+        If compact Then
+
+            ' The second grid column stays at zero. The panel is re-parented
+            ' into a floating bottom overlay across the calculator width.
+            appLayout.ColumnStyles(1).SizeType = SizeType.Absolute
+            appLayout.ColumnStyles(1).Width = 0
+
+            If Object.ReferenceEquals(sidebarPanel.Parent, appLayout) Then
+                appLayout.Controls.Remove(sidebarPanel)
+            End If
+
+            If Not Object.ReferenceEquals(sidebarPanel.Parent, sidebarOverlayHost) Then
+                If sidebarPanel.Parent IsNot Nothing Then
+                    sidebarPanel.Parent.Controls.Remove(sidebarPanel)
+                End If
+                sidebarOverlayHost.Controls.Add(sidebarPanel)
+            End If
+
+            sidebarPanel.Dock = DockStyle.Fill
+            sidebarPanel.Visible = sidebarVisible
+            sidebarOverlayHost.Visible = sidebarVisible
+
+            If sidebarVisible Then
+                Dim overlayHeight As Integer = CInt(Me.ClientSize.Height * 0.62)
+                overlayHeight = Math.Max(180, overlayHeight)
+                overlayHeight = Math.Min(Me.ClientSize.Height, overlayHeight)
+
+                sidebarOverlayHost.Bounds = New Rectangle(
+                    0,
+                    Math.Max(0, Me.ClientSize.Height - overlayHeight),
+                    Me.ClientSize.Width,
+                    overlayHeight
+                )
+
+                sidebarOverlayHost.BackColor = If(IsDarkModeActive(),
+                    Color.FromArgb(30, 30, 30),
+                    Color.FromArgb(245, 245, 245))
+
+                sidebarOverlayHost.BringToFront()
+            Else
+                sidebarOverlayHost.Visible = False
+                appLayout.BringToFront()
+            End If
+
+        Else
+
+            sidebarOverlayHost.Visible = False
+
+            If Object.ReferenceEquals(sidebarPanel.Parent, sidebarOverlayHost) Then
+                sidebarOverlayHost.Controls.Remove(sidebarPanel)
+            End If
+
+            If Not Object.ReferenceEquals(sidebarPanel.Parent, appLayout) Then
+                If sidebarPanel.Parent IsNot Nothing Then
+                    sidebarPanel.Parent.Controls.Remove(sidebarPanel)
+                End If
+                appLayout.Controls.Add(sidebarPanel, 1, 0)
+            End If
+
+            sidebarPanel.Dock = DockStyle.Fill
+            sidebarPanel.Visible = sidebarVisible
+
+            appLayout.ColumnStyles(1).SizeType = SizeType.Absolute
+            appLayout.ColumnStyles(1).Width = If(sidebarVisible, 300, 0)
+            appLayout.BringToFront()
+
+        End If
 
         appLayout.PerformLayout()
+        sidebarPanel.PerformLayout()
+
+    End Sub
+
+
+    Private Sub Form1_Resize(sender As Object, e As EventArgs) Handles MyBase.Resize
+
+        If Me.WindowState = FormWindowState.Minimized Then Return
+        If appLayout Is Nothing OrElse sidebarPanel Is Nothing Then Return
+
+        UpdateResponsiveSidebarLayout()
 
     End Sub
 
@@ -1769,8 +1867,12 @@ Public Class Form1
 
     Private Sub ShowHistory(sender As Object, e As EventArgs)
 
-        If Not sidebarVisible Then SetSidebarVisible(True)
+        If sidebarVisible AndAlso sidebarMode = "History" Then
+            SetSidebarVisible(False)
+            Return
+        End If
 
+        SetSidebarVisible(True)
         ShowSidebarHistory()
 
     End Sub
@@ -2087,6 +2189,10 @@ Public Class Form1
         If memoryMenu IsNot Nothing Then ApplyMenuTheme(memoryMenu)
         If trigonometryMenu IsNot Nothing Then ApplyMenuTheme(trigonometryMenu)
         If functionMenu IsNot Nothing Then ApplyMenuTheme(functionMenu)
+
+        If sidebarOverlayHost IsNot Nothing Then
+            sidebarOverlayHost.BackColor = If(dark, Color.FromArgb(30, 30, 30), Color.FromArgb(245, 245, 245))
+        End If
 
     End Sub
 
