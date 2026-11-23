@@ -5,17 +5,25 @@ Imports Microsoft.Win32
 Public Class Form1
 
     ' ==========================================
-    ' CALCULATOR MEMORY AND HISTORY
+    ' CALCULATOR DATA
     ' ==========================================
 
     Private calculationHistory As New List(Of String)
-
     Private memoryValue As Decimal = 0D
 
     Private memoryClearButton As NoFocusButton
     Private memoryRecallButton As NoFocusButton
     Private memoryAddButton As NoFocusButton
     Private memorySubtractButton As NoFocusButton
+
+    Private menuButton As NoFocusButton
+    Private historyButton As NoFocusButton
+    Private navigationMenu As ContextMenuStrip
+
+    Private themeMode As String = "System"
+
+    Private Const ThemeRegistryPath As String =
+        "Software\MinimalCalculator"
 
 
     ' ==========================================
@@ -31,15 +39,13 @@ Public Class Form1
         TextBox1.TabStop = False
         TextBox1.TextAlign = HorizontalAlignment.Right
 
-        For Each ctrl As Control In Me.Controls
-            If TypeOf ctrl Is Button Then
-                ctrl.TabStop = False
-            End If
-        Next
+        LoadThemePreference()
 
         BuildResponsiveLayout()
+        BuildNavigationMenu()
 
-        AddHandler SystemEvents.UserPreferenceChanged, AddressOf SystemThemeChanged
+        AddHandler SystemEvents.UserPreferenceChanged,
+            AddressOf SystemThemeChanged
 
         ApplySystemTheme()
 
@@ -86,7 +92,7 @@ Public Class Form1
 
 
     ' ==========================================
-    ' EQUALS BUTTON + CALCULATION HISTORY
+    ' EQUALS + CALCULATION HISTORY
     ' ==========================================
 
     Private Sub Equals_Click(sender As Object, e As EventArgs) Handles Equals.Click
@@ -105,11 +111,7 @@ Public Class Form1
 
             TextBox1.Text = resultText
 
-            ' Save successful calculation
-
             calculationHistory.Insert(0, expression & " = " & resultText)
-
-            ' Maximum 100 history records
 
             If calculationHistory.Count > 100 Then
                 calculationHistory.RemoveAt(calculationHistory.Count - 1)
@@ -290,7 +292,7 @@ Public Class Form1
 
 
     ' ==========================================
-    ' KEYBOARD SUPPORT - NUMBERS & OPERATORS
+    ' KEYBOARD SUPPORT
     ' ==========================================
 
     Private Sub Form1_KeyPress(sender As Object, e As KeyPressEventArgs) Handles MyBase.KeyPress
@@ -337,32 +339,23 @@ Public Class Form1
     End Sub
 
 
-    ' ==========================================
-    ' KEYBOARD SUPPORT - SPECIAL KEYS
-    ' ==========================================
-
     Private Sub Form1_KeyDown(sender As Object, e As KeyEventArgs) Handles MyBase.KeyDown
 
         Select Case e.KeyCode
 
             Case Keys.Enter
-
                 Equals.PerformClick()
 
             Case Keys.Back
-
                 Button20.PerformClick()
 
             Case Keys.Escape
-
                 Button19.PerformClick()
 
             Case Keys.Delete
-
                 Button18.PerformClick()
 
             Case Else
-
                 Exit Sub
 
         End Select
@@ -382,7 +375,6 @@ Public Class Form1
         Select Case (keyData And Keys.KeyCode)
 
             Case Keys.Left, Keys.Right, Keys.Up, Keys.Down
-
                 Return True
 
         End Select
@@ -417,7 +409,7 @@ Public Class Form1
 
     ' ==========================================
     ' RESPONSIVE LAYOUT
-    ' FONT SIZES REMAIN UNCHANGED
+    ' FONT SIZES ARE PRESERVED
     ' ==========================================
 
     Private Sub BuildResponsiveLayout()
@@ -427,49 +419,86 @@ Public Class Form1
         Dim mainLayout As New TableLayoutPanel With {
             .Dock = DockStyle.Fill,
             .ColumnCount = 1,
-            .RowCount = 2,
+            .RowCount = 3,
             .Padding = New Padding(8),
             .Margin = New Padding(0)
         }
 
+        mainLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 42))
         mainLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 22))
         mainLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 78))
 
 
         ' ==========================================
-        ' DISPLAY PANEL
+        ' HEADER PANEL
         ' ==========================================
 
-        Dim displayPanel As New TableLayoutPanel With {
+        Dim headerPanel As New TableLayoutPanel With {
             .Dock = DockStyle.Fill,
-            .ColumnCount = 2,
+            .ColumnCount = 3,
             .RowCount = 1,
             .Margin = New Padding(0)
         }
 
-        displayPanel.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
-        displayPanel.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 85))
-
-        TextBox1.Dock = DockStyle.Fill
-        TextBox1.Margin = New Padding(8)
+        headerPanel.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 48))
+        headerPanel.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
+        headerPanel.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 85))
 
 
-        ' ==========================================
-        ' HISTORY BUTTON
-        ' ==========================================
+        ' Hamburger button
 
-        Dim historyButton As New NoFocusButton With {
+        menuButton = New NoFocusButton With {
+            .Text = "☰",
+            .Dock = DockStyle.Fill,
+            .Margin = New Padding(2),
+            .TabStop = False,
+            .Font = New Font("Segoe UI Symbol", 12, FontStyle.Regular)
+        }
+
+        AddHandler menuButton.Click, AddressOf ShowNavigationMenu
+
+
+        ' Header title
+
+        Dim headerTitle As New Label With {
+            .Text = "Standard",
+            .Dock = DockStyle.Fill,
+            .TextAlign = ContentAlignment.MiddleLeft,
+            .Font = New Font("Segoe UI", 12, FontStyle.Bold),
+            .Padding = New Padding(8, 0, 0, 0)
+        }
+
+
+        ' History button
+
+        historyButton = New NoFocusButton With {
             .Text = "History",
             .Dock = DockStyle.Fill,
-            .Margin = New Padding(3),
+            .Margin = New Padding(2),
             .TabStop = False,
             .Font = Button17.Font
         }
 
         AddHandler historyButton.Click, AddressOf ShowHistory
 
-        displayPanel.Controls.Add(TextBox1, 0, 0)
-        displayPanel.Controls.Add(historyButton, 1, 0)
+        headerPanel.Controls.Add(menuButton, 0, 0)
+        headerPanel.Controls.Add(headerTitle, 1, 0)
+        headerPanel.Controls.Add(historyButton, 2, 0)
+
+
+        ' ==========================================
+        ' DISPLAY PANEL
+        ' ==========================================
+
+        Dim displayPanel As New Panel With {
+            .Dock = DockStyle.Fill,
+            .Margin = New Padding(0)
+        }
+
+        TextBox1.Dock = DockStyle.Fill
+        TextBox1.Margin = New Padding(8)
+
+        displayPanel.Controls.Add(TextBox1)
 
 
         ' ==========================================
@@ -526,25 +555,15 @@ Public Class Form1
         }
 
         For i As Integer = 1 To 4
-
-            keypad.ColumnStyles.Add(
-                New ColumnStyle(SizeType.Percent, 25)
-            )
-
+            keypad.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 25))
         Next
 
         For i As Integer = 1 To 7
-
-            keypad.RowStyles.Add(
-                New RowStyle(SizeType.Percent, 100.0F / 7)
-            )
-
+            keypad.RowStyles.Add(New RowStyle(SizeType.Percent, 100.0F / 7))
         Next
 
 
-        ' ==========================================
-        ' EXISTING CALCULATOR BUTTONS
-        ' ==========================================
+        ' Existing buttons
 
         Dim buttons As Button() = {
             Button17, Button18, Button19, Button20,
@@ -564,9 +583,7 @@ Public Class Form1
         Next
 
 
-        ' ==========================================
-        ' FIRST ROW - MEMORY BUTTONS
-        ' ==========================================
+        ' First row - Memory
 
         keypad.Controls.Add(memoryClearButton, 0, 0)
         keypad.Controls.Add(memoryRecallButton, 1, 0)
@@ -574,9 +591,7 @@ Public Class Form1
         keypad.Controls.Add(memorySubtractButton, 3, 0)
 
 
-        ' ==========================================
-        ' SECOND ROW - CLEAR BUTTONS
-        ' ==========================================
+        ' Second row - Clear
 
         keypad.Controls.Add(Button17, 0, 1)
         keypad.Controls.Add(Button18, 1, 1)
@@ -584,9 +599,7 @@ Public Class Form1
         keypad.Controls.Add(Button20, 3, 1)
 
 
-        ' ==========================================
-        ' THIRD ROW - 7 8 9 /
-        ' ==========================================
+        ' Third row
 
         keypad.Controls.Add(Button1, 0, 2)
         keypad.Controls.Add(Button2, 1, 2)
@@ -594,9 +607,7 @@ Public Class Form1
         keypad.Controls.Add(divide, 3, 2)
 
 
-        ' ==========================================
-        ' FOURTH ROW - 4 5 6 *
-        ' ==========================================
+        ' Fourth row
 
         keypad.Controls.Add(Button4, 0, 3)
         keypad.Controls.Add(Button5, 1, 3)
@@ -604,9 +615,7 @@ Public Class Form1
         keypad.Controls.Add(multiply, 3, 3)
 
 
-        ' ==========================================
-        ' FIFTH ROW - 1 2 3 -
-        ' ==========================================
+        ' Fifth row
 
         keypad.Controls.Add(Button7, 0, 4)
         keypad.Controls.Add(Button8, 1, 4)
@@ -614,9 +623,7 @@ Public Class Form1
         keypad.Controls.Add(minus, 3, 4)
 
 
-        ' ==========================================
-        ' SIXTH ROW - +/- 0 . +
-        ' ==========================================
+        ' Sixth row
 
         keypad.Controls.Add(Button10, 0, 5)
         keypad.Controls.Add(Button11, 1, 5)
@@ -624,20 +631,15 @@ Public Class Form1
         keypad.Controls.Add(addition, 3, 5)
 
 
-        ' ==========================================
-        ' SEVENTH ROW - EQUALS
-        ' ==========================================
+        ' Seventh row
 
         keypad.Controls.Add(Equals, 0, 6)
         keypad.SetColumnSpan(Equals, 4)
 
 
-        ' ==========================================
-        ' ADD PANELS TO MAIN LAYOUT
-        ' ==========================================
-
-        mainLayout.Controls.Add(displayPanel, 0, 0)
-        mainLayout.Controls.Add(keypad, 0, 1)
+        mainLayout.Controls.Add(headerPanel, 0, 0)
+        mainLayout.Controls.Add(displayPanel, 0, 1)
+        mainLayout.Controls.Add(keypad, 0, 2)
 
         Me.Controls.Add(mainLayout)
         mainLayout.BringToFront()
@@ -648,222 +650,274 @@ Public Class Form1
 
 
     ' ==========================================
-    ' CALCULATION HISTORY WINDOW
+    ' NAVIGATION MENU
     ' ==========================================
 
-    Private Sub ShowHistory(sender As Object, e As EventArgs)
+    Private Sub BuildNavigationMenu()
 
-        Using historyWindow As New Form()
+        navigationMenu = New ContextMenuStrip()
 
-            historyWindow.Text = "Calculation History"
-            historyWindow.Size = New Size(400, 460)
-            historyWindow.MinimumSize = New Size(400, 460)
-            historyWindow.StartPosition = FormStartPosition.CenterParent
-            historyWindow.FormBorderStyle = FormBorderStyle.FixedDialog
-            historyWindow.MaximizeBox = False
-            historyWindow.MinimizeBox = False
-            historyWindow.ShowInTaskbar = False
+        navigationMenu.ShowImageMargin = False
 
-            Dim darkMode As Boolean = IsSystemDarkMode()
+        Dim calculatorItem As New ToolStripMenuItem("Calculator")
+        Dim settingsItem As New ToolStripMenuItem("Settings")
+
+        calculatorItem.Enabled = False
+
+        AddHandler settingsItem.Click, AddressOf ShowSettings
+
+        navigationMenu.Items.Add(calculatorItem)
+        navigationMenu.Items.Add(New ToolStripSeparator())
+        navigationMenu.Items.Add(settingsItem)
+
+        UpdateNavigationMenuTheme()
+
+    End Sub
+
+
+    Private Sub ShowNavigationMenu(sender As Object, e As EventArgs)
+
+        If navigationMenu Is Nothing Then Return
+
+        UpdateNavigationMenuTheme()
+
+        navigationMenu.Show(menuButton, 0, menuButton.Height)
+
+    End Sub
+
+
+    Private Sub UpdateNavigationMenuTheme()
+
+        If navigationMenu Is Nothing Then Return
+
+        Dim darkMode As Boolean = IsDarkModeActive()
+
+        If darkMode Then
+
+            navigationMenu.BackColor = Color.FromArgb(40, 40, 40)
+            navigationMenu.ForeColor = Color.White
+
+        Else
+
+            navigationMenu.BackColor = Color.White
+            navigationMenu.ForeColor = Color.Black
+
+        End If
+
+        For Each item As ToolStripItem In navigationMenu.Items
 
             If darkMode Then
 
-                historyWindow.BackColor = Color.FromArgb(30, 30, 30)
-                historyWindow.ForeColor = Color.White
+                item.BackColor = Color.FromArgb(40, 40, 40)
+                item.ForeColor = Color.White
 
             Else
 
-                historyWindow.BackColor = Color.FromArgb(245, 245, 245)
-                historyWindow.ForeColor = Color.Black
+                item.BackColor = Color.White
+                item.ForeColor = Color.Black
 
             End If
 
+        Next
 
-            ' Main layout
+    End Sub
 
-            Dim layout As New TableLayoutPanel With {
+
+    ' ==========================================
+    ' SETTINGS PAGE
+    ' ==========================================
+
+    Private Sub ShowSettings(sender As Object, e As EventArgs)
+
+        Using settingsWindow As New Form()
+
+            settingsWindow.Text = "Settings"
+            settingsWindow.Size = New Size(430, 455)
+            settingsWindow.MinimumSize = New Size(430, 455)
+            settingsWindow.StartPosition = FormStartPosition.CenterParent
+            settingsWindow.FormBorderStyle = FormBorderStyle.FixedDialog
+            settingsWindow.MaximizeBox = False
+            settingsWindow.MinimizeBox = False
+            settingsWindow.ShowInTaskbar = False
+
+            settingsWindow.Font = New Font("Segoe UI", 10)
+
+
+            ' Main settings layout
+
+            Dim settingsLayout As New TableLayoutPanel With {
                 .Dock = DockStyle.Fill,
                 .ColumnCount = 1,
                 .RowCount = 3,
-                .Padding = New Padding(10)
+                .Padding = New Padding(22)
             }
 
-            layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 35))
-            layout.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
-            layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 45))
+            settingsLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 55))
+            settingsLayout.RowStyles.Add(New RowStyle(SizeType.Absolute, 42))
+            settingsLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
 
 
-            ' Information label
+            ' Settings heading
 
-            Dim infoLabel As New Label With {
-                .Text = "Double-click a calculation to reuse its result.",
+            Dim heading As New Label With {
+                .Text = "Settings",
                 .Dock = DockStyle.Fill,
+                .Font = New Font("Segoe UI", 19, FontStyle.Bold),
                 .TextAlign = ContentAlignment.MiddleLeft
             }
 
 
-            ' History list
+            ' Appearance heading
 
-            Dim historyList As New ListBox With {
+            Dim appearanceHeading As New Label With {
+                .Text = "Appearance",
                 .Dock = DockStyle.Fill,
-                .BorderStyle = BorderStyle.None,
-                .IntegralHeight = False,
-                .Font = New Font("Segoe UI", 11)
-            }
-
-            If darkMode Then
-
-                historyList.BackColor = Color.FromArgb(22, 22, 22)
-                historyList.ForeColor = Color.White
-
-            Else
-
-                historyList.BackColor = Color.White
-                historyList.ForeColor = Color.Black
-
-            End If
-
-
-            ' Load history entries
-
-            If calculationHistory.Count > 0 Then
-
-                historyList.Items.AddRange(calculationHistory.ToArray())
-
-            Else
-
-                infoLabel.Text = "No calculations yet."
-
-            End If
-
-
-            ' Button panel
-
-            Dim buttonPanel As New FlowLayoutPanel With {
-                .Dock = DockStyle.Fill,
-                .FlowDirection = FlowDirection.RightToLeft,
-                .WrapContents = False
-            }
-
-            Dim useButton As New Button With {
-                .Text = "Use Result",
-                .Size = New Size(100, 32),
-                .Enabled = False
-            }
-
-            Dim clearButton As New Button With {
-                .Text = "Clear",
-                .Size = New Size(75, 32)
-            }
-
-            Dim closeButton As New Button With {
-                .Text = "Close",
-                .Size = New Size(75, 32)
+                .Font = New Font("Segoe UI", 11, FontStyle.Bold),
+                .TextAlign = ContentAlignment.MiddleLeft
             }
 
 
-            ' Button styling
+            ' App theme card
 
-            For Each btn As Button In {useButton, clearButton, closeButton}
-
-                btn.FlatStyle = FlatStyle.Flat
-                btn.UseVisualStyleBackColor = False
-                btn.Font = New Font("Segoe UI", 9)
-
-                If darkMode Then
-
-                    btn.BackColor = Color.FromArgb(48, 48, 48)
-                    btn.ForeColor = Color.White
-
-                Else
-
-                    btn.BackColor = Color.FromArgb(235, 235, 235)
-                    btn.ForeColor = Color.Black
-
-                End If
-
-            Next
-
-            useButton.BackColor = Color.FromArgb(0, 120, 215)
-            useButton.ForeColor = Color.White
+            Dim themeCard As New Panel With {
+                .Dock = DockStyle.Top,
+                .Height = 255,
+                .Margin = New Padding(0)
+            }
 
 
-            ' Enable Use Result when selected
+            Dim appThemeHeading As New Label With {
+                .Text = "App theme",
+                .Location = New Point(18, 15),
+                .AutoSize = True,
+                .Font = New Font("Segoe UI", 11, FontStyle.Bold)
+            }
 
-            AddHandler historyList.SelectedIndexChanged,
+
+            Dim description As New Label With {
+                .Text = "Select which app theme to display",
+                .Location = New Point(18, 43),
+                .AutoSize = True,
+                .Font = New Font("Segoe UI", 9)
+            }
+
+
+            ' Theme radio buttons
+
+            Dim lightRadio As New RadioButton With {
+                .Text = "Light",
+                .Location = New Point(24, 95),
+                .AutoSize = True
+            }
+
+            Dim darkRadio As New RadioButton With {
+                .Text = "Dark",
+                .Location = New Point(24, 140),
+                .AutoSize = True
+            }
+
+            Dim systemRadio As New RadioButton With {
+                .Text = "Use system setting",
+                .Location = New Point(24, 185),
+                .AutoSize = True
+            }
+
+
+            Select Case themeMode
+
+                Case "Light"
+                    lightRadio.Checked = True
+
+                Case "Dark"
+                    darkRadio.Checked = True
+
+                Case Else
+                    systemRadio.Checked = True
+
+            End Select
+
+
+            ' Apply theme selection immediately
+
+            AddHandler lightRadio.CheckedChanged,
                 Sub(s, args)
 
-                    useButton.Enabled = historyList.SelectedItem IsNot Nothing
+                    If lightRadio.Checked Then
 
-                End Sub
+                        SetThemeMode("Light")
 
-
-            ' Use selected result
-
-            AddHandler useButton.Click,
-                Sub(s, args)
-
-                    If historyList.SelectedItem IsNot Nothing Then
-
-                        LoadHistoryResult(CStr(historyList.SelectedItem))
-                        historyWindow.Close()
+                        ApplySettingsWindowTheme(
+                            settingsWindow, themeCard,
+                            heading, appearanceHeading,
+                            appThemeHeading, description,
+                            lightRadio, darkRadio, systemRadio
+                        )
 
                     End If
 
                 End Sub
 
 
-            ' Double-click to reuse result
-
-            AddHandler historyList.DoubleClick,
+            AddHandler darkRadio.CheckedChanged,
                 Sub(s, args)
 
-                    If historyList.SelectedItem IsNot Nothing Then
+                    If darkRadio.Checked Then
 
-                        LoadHistoryResult(CStr(historyList.SelectedItem))
-                        historyWindow.Close()
+                        SetThemeMode("Dark")
+
+                        ApplySettingsWindowTheme(
+                            settingsWindow, themeCard,
+                            heading, appearanceHeading,
+                            appThemeHeading, description,
+                            lightRadio, darkRadio, systemRadio
+                        )
 
                     End If
 
                 End Sub
 
 
-            ' Clear history
-
-            AddHandler clearButton.Click,
+            AddHandler systemRadio.CheckedChanged,
                 Sub(s, args)
 
-                    calculationHistory.Clear()
-                    historyList.Items.Clear()
-                    infoLabel.Text = "No calculations yet."
-                    useButton.Enabled = False
+                    If systemRadio.Checked Then
+
+                        SetThemeMode("System")
+
+                        ApplySettingsWindowTheme(
+                            settingsWindow, themeCard,
+                            heading, appearanceHeading,
+                            appThemeHeading, description,
+                            lightRadio, darkRadio, systemRadio
+                        )
+
+                    End If
 
                 End Sub
 
 
-            ' Close window
-
-            AddHandler closeButton.Click,
-                Sub(s, args)
-
-                    historyWindow.Close()
-
-                End Sub
+            themeCard.Controls.Add(appThemeHeading)
+            themeCard.Controls.Add(description)
+            themeCard.Controls.Add(lightRadio)
+            themeCard.Controls.Add(darkRadio)
+            themeCard.Controls.Add(systemRadio)
 
 
-            ' Add controls
+            settingsLayout.Controls.Add(heading, 0, 0)
+            settingsLayout.Controls.Add(appearanceHeading, 0, 1)
+            settingsLayout.Controls.Add(themeCard, 0, 2)
 
-            buttonPanel.Controls.Add(closeButton)
-            buttonPanel.Controls.Add(clearButton)
-            buttonPanel.Controls.Add(useButton)
+            settingsWindow.Controls.Add(settingsLayout)
 
-            layout.Controls.Add(infoLabel, 0, 0)
-            layout.Controls.Add(historyList, 0, 1)
-            layout.Controls.Add(buttonPanel, 0, 2)
 
-            historyWindow.Controls.Add(layout)
+            ApplySettingsWindowTheme(
+                settingsWindow, themeCard,
+                heading, appearanceHeading,
+                appThemeHeading, description,
+                lightRadio, darkRadio, systemRadio
+            )
 
-            historyWindow.ShowDialog(Me)
+            settingsWindow.ShowDialog(Me)
 
         End Using
 
@@ -871,16 +925,174 @@ Public Class Form1
 
 
     ' ==========================================
-    ' LOAD RESULT FROM HISTORY
+    ' SETTINGS WINDOW THEME
     ' ==========================================
 
-    Private Sub LoadHistoryResult(entry As String)
+    Private Sub ApplySettingsWindowTheme(
+        settingsWindow As Form,
+        themeCard As Panel,
+        heading As Label,
+        appearanceHeading As Label,
+        appThemeHeading As Label,
+        description As Label,
+        lightRadio As RadioButton,
+        darkRadio As RadioButton,
+        systemRadio As RadioButton
+    )
 
-        Dim separator As Integer = entry.LastIndexOf(" = ")
+        Dim darkMode As Boolean = IsDarkModeActive()
 
-        If separator < 0 Then Exit Sub
+        If darkMode Then
 
-        TextBox1.Text = entry.Substring(separator + 3)
+            settingsWindow.BackColor = Color.FromArgb(30, 30, 30)
+            settingsWindow.ForeColor = Color.White
+
+            themeCard.BackColor = Color.FromArgb(40, 48, 44)
+
+        Else
+
+            settingsWindow.BackColor = Color.FromArgb(245, 245, 245)
+            settingsWindow.ForeColor = Color.FromArgb(30, 30, 30)
+
+            themeCard.BackColor = Color.FromArgb(235, 235, 235)
+
+        End If
+
+
+        For Each lbl As Label In {
+            heading,
+            appearanceHeading,
+            appThemeHeading
+        }
+
+            lbl.ForeColor = If(
+                darkMode,
+                Color.White,
+                Color.FromArgb(30, 30, 30)
+            )
+
+        Next
+
+
+        description.ForeColor = If(
+            darkMode,
+            Color.LightGray,
+            Color.FromArgb(80, 80, 80)
+        )
+
+
+        For Each radio As RadioButton In {
+            lightRadio,
+            darkRadio,
+            systemRadio
+        }
+
+            radio.ForeColor = If(
+                darkMode,
+                Color.White,
+                Color.FromArgb(30, 30, 30)
+            )
+
+        Next
+
+    End Sub
+
+
+    ' ==========================================
+    ' SET THEME MODE
+    ' ==========================================
+
+    Private Sub SetThemeMode(mode As String)
+
+        If mode <> "System" AndAlso
+           mode <> "Dark" AndAlso
+           mode <> "Light" Then
+
+            Return
+
+        End If
+
+        themeMode = mode
+
+        SaveThemePreference()
+
+        ApplySystemTheme()
+
+    End Sub
+
+
+    ' ==========================================
+    ' LOAD SAVED THEME PREFERENCE
+    ' ==========================================
+
+    Private Sub LoadThemePreference()
+
+        themeMode = "System"
+
+        Try
+
+            Using key As RegistryKey =
+                Registry.CurrentUser.OpenSubKey(ThemeRegistryPath, False)
+
+                If key IsNot Nothing Then
+
+                    Dim savedMode As String =
+                        Convert.ToString(key.GetValue("ThemeMode", "System"))
+
+                    Select Case savedMode.Trim().ToLowerInvariant()
+
+                        Case "dark"
+                            themeMode = "Dark"
+
+                        Case "light"
+                            themeMode = "Light"
+
+                        Case Else
+                            themeMode = "System"
+
+                    End Select
+
+                End If
+
+            End Using
+
+        Catch
+
+            themeMode = "System"
+
+        End Try
+
+    End Sub
+
+
+    ' ==========================================
+    ' SAVE THEME PREFERENCE
+    ' ==========================================
+
+    Private Sub SaveThemePreference()
+
+        Try
+
+            Using key As RegistryKey =
+                Registry.CurrentUser.CreateSubKey(ThemeRegistryPath)
+
+                If key IsNot Nothing Then
+
+                    key.SetValue(
+                        "ThemeMode",
+                        themeMode,
+                        RegistryValueKind.String
+                    )
+
+                End If
+
+            End Using
+
+        Catch
+
+            ' Current session theme still works.
+
+        End Try
 
     End Sub
 
@@ -916,12 +1128,250 @@ Public Class Form1
 
 
     ' ==========================================
-    ' APPLY SYSTEM THEME
+    ' DETERMINE CURRENT THEME
+    ' ==========================================
+
+    Private Function IsDarkModeActive() As Boolean
+
+        Select Case themeMode
+
+            Case "Dark"
+                Return True
+
+            Case "Light"
+                Return False
+
+            Case Else
+                Return IsSystemDarkMode()
+
+        End Select
+
+    End Function
+
+
+    ' ==========================================
+    ' CALCULATION HISTORY WINDOW
+    ' ==========================================
+
+    Private Sub ShowHistory(sender As Object, e As EventArgs)
+
+        Using historyWindow As New Form()
+
+            historyWindow.Text = "Calculation History"
+            historyWindow.Size = New Size(400, 460)
+            historyWindow.MinimumSize = New Size(400, 460)
+            historyWindow.StartPosition = FormStartPosition.CenterParent
+            historyWindow.FormBorderStyle = FormBorderStyle.FixedDialog
+            historyWindow.MaximizeBox = False
+            historyWindow.MinimizeBox = False
+            historyWindow.ShowInTaskbar = False
+
+            Dim darkMode As Boolean = IsDarkModeActive()
+
+            If darkMode Then
+
+                historyWindow.BackColor = Color.FromArgb(30, 30, 30)
+                historyWindow.ForeColor = Color.White
+
+            Else
+
+                historyWindow.BackColor = Color.FromArgb(245, 245, 245)
+                historyWindow.ForeColor = Color.Black
+
+            End If
+
+
+            Dim layout As New TableLayoutPanel With {
+                .Dock = DockStyle.Fill,
+                .ColumnCount = 1,
+                .RowCount = 3,
+                .Padding = New Padding(10)
+            }
+
+            layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 35))
+            layout.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
+            layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 45))
+
+
+            Dim infoLabel As New Label With {
+                .Text = "Double-click a calculation to reuse its result.",
+                .Dock = DockStyle.Fill,
+                .TextAlign = ContentAlignment.MiddleLeft
+            }
+
+
+            Dim historyList As New ListBox With {
+                .Dock = DockStyle.Fill,
+                .BorderStyle = BorderStyle.None,
+                .IntegralHeight = False,
+                .Font = New Font("Segoe UI", 11)
+            }
+
+            If darkMode Then
+
+                historyList.BackColor = Color.FromArgb(22, 22, 22)
+                historyList.ForeColor = Color.White
+
+            Else
+
+                historyList.BackColor = Color.White
+                historyList.ForeColor = Color.Black
+
+            End If
+
+
+            If calculationHistory.Count > 0 Then
+
+                historyList.Items.AddRange(calculationHistory.ToArray())
+
+            Else
+
+                infoLabel.Text = "No calculations yet."
+
+            End If
+
+
+            Dim buttonPanel As New FlowLayoutPanel With {
+                .Dock = DockStyle.Fill,
+                .FlowDirection = FlowDirection.RightToLeft,
+                .WrapContents = False
+            }
+
+
+            Dim useButton As New Button With {
+                .Text = "Use Result",
+                .Size = New Size(100, 32),
+                .Enabled = False
+            }
+
+            Dim clearButton As New Button With {
+                .Text = "Clear",
+                .Size = New Size(75, 32)
+            }
+
+            Dim closeButton As New Button With {
+                .Text = "Close",
+                .Size = New Size(75, 32)
+            }
+
+
+            For Each btn As Button In {useButton, clearButton, closeButton}
+
+                btn.FlatStyle = FlatStyle.Flat
+                btn.UseVisualStyleBackColor = False
+                btn.Font = New Font("Segoe UI", 9)
+
+                If darkMode Then
+
+                    btn.BackColor = Color.FromArgb(48, 48, 48)
+                    btn.ForeColor = Color.White
+
+                Else
+
+                    btn.BackColor = Color.FromArgb(235, 235, 235)
+                    btn.ForeColor = Color.Black
+
+                End If
+
+            Next
+
+            useButton.BackColor = Color.FromArgb(0, 120, 215)
+            useButton.ForeColor = Color.White
+
+
+            AddHandler historyList.SelectedIndexChanged,
+                Sub(s, args)
+
+                    useButton.Enabled =
+                        historyList.SelectedItem IsNot Nothing
+
+                End Sub
+
+
+            AddHandler useButton.Click,
+                Sub(s, args)
+
+                    If historyList.SelectedItem IsNot Nothing Then
+
+                        LoadHistoryResult(CStr(historyList.SelectedItem))
+                        historyWindow.Close()
+
+                    End If
+
+                End Sub
+
+
+            AddHandler historyList.DoubleClick,
+                Sub(s, args)
+
+                    If historyList.SelectedItem IsNot Nothing Then
+
+                        LoadHistoryResult(CStr(historyList.SelectedItem))
+                        historyWindow.Close()
+
+                    End If
+
+                End Sub
+
+
+            AddHandler clearButton.Click,
+                Sub(s, args)
+
+                    calculationHistory.Clear()
+                    historyList.Items.Clear()
+                    infoLabel.Text = "No calculations yet."
+                    useButton.Enabled = False
+
+                End Sub
+
+
+            AddHandler closeButton.Click,
+                Sub(s, args)
+
+                    historyWindow.Close()
+
+                End Sub
+
+
+            buttonPanel.Controls.Add(closeButton)
+            buttonPanel.Controls.Add(clearButton)
+            buttonPanel.Controls.Add(useButton)
+
+            layout.Controls.Add(infoLabel, 0, 0)
+            layout.Controls.Add(historyList, 0, 1)
+            layout.Controls.Add(buttonPanel, 0, 2)
+
+            historyWindow.Controls.Add(layout)
+
+            historyWindow.ShowDialog(Me)
+
+        End Using
+
+    End Sub
+
+
+    ' ==========================================
+    ' LOAD RESULT FROM HISTORY
+    ' ==========================================
+
+    Private Sub LoadHistoryResult(entry As String)
+
+        Dim separator As Integer = entry.LastIndexOf(" = ")
+
+        If separator < 0 Then Exit Sub
+
+        TextBox1.Text = entry.Substring(separator + 3)
+
+    End Sub
+
+
+    ' ==========================================
+    ' APPLY THEME
     ' ==========================================
 
     Private Sub ApplySystemTheme()
 
-        Dim darkMode As Boolean = IsSystemDarkMode()
+        Dim darkMode As Boolean = IsDarkModeActive()
 
         If darkMode Then
 
@@ -942,6 +1392,7 @@ Public Class Form1
         End If
 
         ApplyButtonTheme(Me, darkMode)
+        UpdateNavigationMenuTheme()
 
     End Sub
 
@@ -957,13 +1408,9 @@ Public Class Form1
             If TypeOf ctrl Is TableLayoutPanel Then
 
                 If darkMode Then
-
                     ctrl.BackColor = Color.FromArgb(30, 30, 30)
-
                 Else
-
                     ctrl.BackColor = Color.FromArgb(245, 245, 245)
-
                 End If
 
             End If
@@ -1001,9 +1448,7 @@ Public Class Form1
 
 
             If ctrl.HasChildren Then
-
                 ApplyButtonTheme(ctrl, darkMode)
-
             End If
 
         Next
@@ -1025,7 +1470,7 @@ Public Class Form1
 
         Catch ex As InvalidOperationException
 
-            ' Form is closing
+            ' Form is closing.
 
         End Try
 
@@ -1044,12 +1489,17 @@ Public Class Form1
 
 
     ' ==========================================
-    ' REMOVE EVENT HANDLER WHEN FORM CLOSES
+    ' REMOVE EVENT HANDLERS WHEN FORM CLOSES
     ' ==========================================
 
     Private Sub Form1_FormClosed(sender As Object, e As FormClosedEventArgs) Handles MyBase.FormClosed
 
-        RemoveHandler SystemEvents.UserPreferenceChanged, AddressOf SystemThemeChanged
+        RemoveHandler SystemEvents.UserPreferenceChanged,
+            AddressOf SystemThemeChanged
+
+        If navigationMenu IsNot Nothing Then
+            navigationMenu.Dispose()
+        End If
 
     End Sub
 
