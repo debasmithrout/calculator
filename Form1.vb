@@ -4,7 +4,19 @@ Imports Microsoft.Win32
 
 Public Class Form1
 
+    ' ==========================================
+    ' CALCULATOR MEMORY AND HISTORY
+    ' ==========================================
+
     Private calculationHistory As New List(Of String)
+
+    Private memoryValue As Decimal = 0D
+
+    Private memoryClearButton As NoFocusButton
+    Private memoryRecallButton As NoFocusButton
+    Private memoryAddButton As NoFocusButton
+    Private memorySubtractButton As NoFocusButton
+
 
     ' ==========================================
     ' FORM LOAD
@@ -74,7 +86,7 @@ Public Class Form1
 
 
     ' ==========================================
-    ' EQUALS BUTTON + HISTORY
+    ' EQUALS BUTTON + CALCULATION HISTORY
     ' ==========================================
 
     Private Sub Equals_Click(sender As Object, e As EventArgs) Handles Equals.Click
@@ -199,6 +211,80 @@ Public Class Form1
         If Decimal.TryParse(TextBox1.Text, number) Then
             TextBox1.Text = (-number).ToString()
         End If
+
+    End Sub
+
+
+    ' ==========================================
+    ' MEMORY ADD (M+)
+    ' ==========================================
+
+    Private Sub MemoryAdd_Click(sender As Object, e As EventArgs)
+
+        Dim currentValue As Decimal
+
+        If Decimal.TryParse(TextBox1.Text, currentValue) Then
+
+            memoryValue += currentValue
+
+        Else
+
+            MessageBox.Show(
+                "Enter a valid number before using M+.",
+                "Calculator Memory",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information
+            )
+
+        End If
+
+    End Sub
+
+
+    ' ==========================================
+    ' MEMORY SUBTRACT (M-)
+    ' ==========================================
+
+    Private Sub MemorySubtract_Click(sender As Object, e As EventArgs)
+
+        Dim currentValue As Decimal
+
+        If Decimal.TryParse(TextBox1.Text, currentValue) Then
+
+            memoryValue -= currentValue
+
+        Else
+
+            MessageBox.Show(
+                "Enter a valid number before using M-.",
+                "Calculator Memory",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information
+            )
+
+        End If
+
+    End Sub
+
+
+    ' ==========================================
+    ' MEMORY RECALL (MR)
+    ' ==========================================
+
+    Private Sub MemoryRecall_Click(sender As Object, e As EventArgs)
+
+        TextBox1.Text = memoryValue.ToString()
+
+    End Sub
+
+
+    ' ==========================================
+    ' MEMORY CLEAR (MC)
+    ' ==========================================
+
+    Private Sub MemoryClear_Click(sender As Object, e As EventArgs)
+
+        memoryValue = 0D
 
     End Sub
 
@@ -349,7 +435,10 @@ Public Class Form1
         mainLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 22))
         mainLayout.RowStyles.Add(New RowStyle(SizeType.Percent, 78))
 
-        ' Display panel
+
+        ' ==========================================
+        ' DISPLAY PANEL
+        ' ==========================================
 
         Dim displayPanel As New TableLayoutPanel With {
             .Dock = DockStyle.Fill,
@@ -361,18 +450,20 @@ Public Class Form1
         displayPanel.ColumnStyles.Add(New ColumnStyle(SizeType.Percent, 100))
         displayPanel.ColumnStyles.Add(New ColumnStyle(SizeType.Absolute, 85))
 
-        ' Display textbox
-
         TextBox1.Dock = DockStyle.Fill
         TextBox1.Margin = New Padding(8)
 
-        ' History button
+
+        ' ==========================================
+        ' HISTORY BUTTON
+        ' ==========================================
 
         Dim historyButton As New NoFocusButton With {
             .Text = "History",
             .Dock = DockStyle.Fill,
             .Margin = New Padding(3),
-            .TabStop = False
+            .TabStop = False,
+            .Font = Button17.Font
         }
 
         AddHandler historyButton.Click, AddressOf ShowHistory
@@ -380,12 +471,57 @@ Public Class Form1
         displayPanel.Controls.Add(TextBox1, 0, 0)
         displayPanel.Controls.Add(historyButton, 1, 0)
 
-        ' Keypad
+
+        ' ==========================================
+        ' MEMORY BUTTONS
+        ' ==========================================
+
+        memoryClearButton = New NoFocusButton With {
+            .Text = "MC",
+            .Dock = DockStyle.Fill,
+            .Margin = New Padding(3),
+            .TabStop = False,
+            .Font = Button17.Font
+        }
+
+        memoryRecallButton = New NoFocusButton With {
+            .Text = "MR",
+            .Dock = DockStyle.Fill,
+            .Margin = New Padding(3),
+            .TabStop = False,
+            .Font = Button17.Font
+        }
+
+        memoryAddButton = New NoFocusButton With {
+            .Text = "M+",
+            .Dock = DockStyle.Fill,
+            .Margin = New Padding(3),
+            .TabStop = False,
+            .Font = Button17.Font
+        }
+
+        memorySubtractButton = New NoFocusButton With {
+            .Text = "M-",
+            .Dock = DockStyle.Fill,
+            .Margin = New Padding(3),
+            .TabStop = False,
+            .Font = Button17.Font
+        }
+
+        AddHandler memoryClearButton.Click, AddressOf MemoryClear_Click
+        AddHandler memoryRecallButton.Click, AddressOf MemoryRecall_Click
+        AddHandler memoryAddButton.Click, AddressOf MemoryAdd_Click
+        AddHandler memorySubtractButton.Click, AddressOf MemorySubtract_Click
+
+
+        ' ==========================================
+        ' KEYPAD
+        ' ==========================================
 
         Dim keypad As New TableLayoutPanel With {
             .Dock = DockStyle.Fill,
             .ColumnCount = 4,
-            .RowCount = 6,
+            .RowCount = 7,
             .Margin = New Padding(0)
         }
 
@@ -397,15 +533,18 @@ Public Class Form1
 
         Next
 
-        For i As Integer = 1 To 6
+        For i As Integer = 1 To 7
 
             keypad.RowStyles.Add(
-                New RowStyle(SizeType.Percent, 100.0F / 6)
+                New RowStyle(SizeType.Percent, 100.0F / 7)
             )
 
         Next
 
-        ' Calculator buttons
+
+        ' ==========================================
+        ' EXISTING CALCULATOR BUTTONS
+        ' ==========================================
 
         Dim buttons As Button() = {
             Button17, Button18, Button19, Button20,
@@ -424,47 +563,78 @@ Public Class Form1
 
         Next
 
-        ' First row
 
-        keypad.Controls.Add(Button17, 0, 0)
-        keypad.Controls.Add(Button18, 1, 0)
-        keypad.Controls.Add(Button19, 2, 0)
-        keypad.Controls.Add(Button20, 3, 0)
+        ' ==========================================
+        ' FIRST ROW - MEMORY BUTTONS
+        ' ==========================================
 
-        ' Second row
+        keypad.Controls.Add(memoryClearButton, 0, 0)
+        keypad.Controls.Add(memoryRecallButton, 1, 0)
+        keypad.Controls.Add(memoryAddButton, 2, 0)
+        keypad.Controls.Add(memorySubtractButton, 3, 0)
 
-        keypad.Controls.Add(Button1, 0, 1)
-        keypad.Controls.Add(Button2, 1, 1)
-        keypad.Controls.Add(Button3, 2, 1)
-        keypad.Controls.Add(divide, 3, 1)
 
-        ' Third row
+        ' ==========================================
+        ' SECOND ROW - CLEAR BUTTONS
+        ' ==========================================
 
-        keypad.Controls.Add(Button4, 0, 2)
-        keypad.Controls.Add(Button5, 1, 2)
-        keypad.Controls.Add(Button6, 2, 2)
-        keypad.Controls.Add(multiply, 3, 2)
+        keypad.Controls.Add(Button17, 0, 1)
+        keypad.Controls.Add(Button18, 1, 1)
+        keypad.Controls.Add(Button19, 2, 1)
+        keypad.Controls.Add(Button20, 3, 1)
 
-        ' Fourth row
 
-        keypad.Controls.Add(Button7, 0, 3)
-        keypad.Controls.Add(Button8, 1, 3)
-        keypad.Controls.Add(Button9, 2, 3)
-        keypad.Controls.Add(minus, 3, 3)
+        ' ==========================================
+        ' THIRD ROW - 7 8 9 /
+        ' ==========================================
 
-        ' Fifth row
+        keypad.Controls.Add(Button1, 0, 2)
+        keypad.Controls.Add(Button2, 1, 2)
+        keypad.Controls.Add(Button3, 2, 2)
+        keypad.Controls.Add(divide, 3, 2)
 
-        keypad.Controls.Add(Button10, 0, 4)
-        keypad.Controls.Add(Button11, 1, 4)
-        keypad.Controls.Add(dot, 2, 4)
-        keypad.Controls.Add(addition, 3, 4)
 
-        ' Equals button
+        ' ==========================================
+        ' FOURTH ROW - 4 5 6 *
+        ' ==========================================
 
-        keypad.Controls.Add(Equals, 0, 5)
+        keypad.Controls.Add(Button4, 0, 3)
+        keypad.Controls.Add(Button5, 1, 3)
+        keypad.Controls.Add(Button6, 2, 3)
+        keypad.Controls.Add(multiply, 3, 3)
+
+
+        ' ==========================================
+        ' FIFTH ROW - 1 2 3 -
+        ' ==========================================
+
+        keypad.Controls.Add(Button7, 0, 4)
+        keypad.Controls.Add(Button8, 1, 4)
+        keypad.Controls.Add(Button9, 2, 4)
+        keypad.Controls.Add(minus, 3, 4)
+
+
+        ' ==========================================
+        ' SIXTH ROW - +/- 0 . +
+        ' ==========================================
+
+        keypad.Controls.Add(Button10, 0, 5)
+        keypad.Controls.Add(Button11, 1, 5)
+        keypad.Controls.Add(dot, 2, 5)
+        keypad.Controls.Add(addition, 3, 5)
+
+
+        ' ==========================================
+        ' SEVENTH ROW - EQUALS
+        ' ==========================================
+
+        keypad.Controls.Add(Equals, 0, 6)
         keypad.SetColumnSpan(Equals, 4)
 
-        ' Add panels
+
+        ' ==========================================
+        ' ADD PANELS TO MAIN LAYOUT
+        ' ==========================================
 
         mainLayout.Controls.Add(displayPanel, 0, 0)
         mainLayout.Controls.Add(keypad, 0, 1)
@@ -508,6 +678,7 @@ Public Class Form1
 
             End If
 
+
             ' Main layout
 
             Dim layout As New TableLayoutPanel With {
@@ -521,6 +692,7 @@ Public Class Form1
             layout.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
             layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 45))
 
+
             ' Information label
 
             Dim infoLabel As New Label With {
@@ -528,6 +700,7 @@ Public Class Form1
                 .Dock = DockStyle.Fill,
                 .TextAlign = ContentAlignment.MiddleLeft
             }
+
 
             ' History list
 
@@ -550,6 +723,7 @@ Public Class Form1
 
             End If
 
+
             ' Load history entries
 
             If calculationHistory.Count > 0 Then
@@ -561,6 +735,7 @@ Public Class Form1
                 infoLabel.Text = "No calculations yet."
 
             End If
+
 
             ' Button panel
 
@@ -585,6 +760,7 @@ Public Class Form1
                 .Text = "Close",
                 .Size = New Size(75, 32)
             }
+
 
             ' Button styling
 
@@ -611,7 +787,8 @@ Public Class Form1
             useButton.BackColor = Color.FromArgb(0, 120, 215)
             useButton.ForeColor = Color.White
 
-            ' Enable Use Result when an item is selected
+
+            ' Enable Use Result when selected
 
             AddHandler historyList.SelectedIndexChanged,
                 Sub(s, args)
@@ -619,6 +796,7 @@ Public Class Form1
                     useButton.Enabled = historyList.SelectedItem IsNot Nothing
 
                 End Sub
+
 
             ' Use selected result
 
@@ -634,6 +812,7 @@ Public Class Form1
 
                 End Sub
 
+
             ' Double-click to reuse result
 
             AddHandler historyList.DoubleClick,
@@ -648,6 +827,7 @@ Public Class Form1
 
                 End Sub
 
+
             ' Clear history
 
             AddHandler clearButton.Click,
@@ -660,7 +840,8 @@ Public Class Form1
 
                 End Sub
 
-            ' Close history window
+
+            ' Close window
 
             AddHandler closeButton.Click,
                 Sub(s, args)
@@ -668,6 +849,7 @@ Public Class Form1
                     historyWindow.Close()
 
                 End Sub
+
 
             ' Add controls
 
@@ -786,6 +968,7 @@ Public Class Form1
 
             End If
 
+
             If TypeOf ctrl Is Button Then
 
                 Dim btn As Button = DirectCast(ctrl, Button)
@@ -799,22 +982,6 @@ Public Class Form1
                     btn.BackColor = Color.FromArgb(0, 120, 215)
                     btn.ForeColor = Color.White
                     btn.FlatAppearance.BorderColor = Color.FromArgb(0, 120, 215)
-
-                ElseIf btn.Text = "History" Then
-
-                    If darkMode Then
-
-                        btn.BackColor = Color.FromArgb(48, 48, 48)
-                        btn.ForeColor = Color.White
-                        btn.FlatAppearance.BorderColor = Color.FromArgb(75, 75, 75)
-
-                    Else
-
-                        btn.BackColor = Color.FromArgb(235, 235, 235)
-                        btn.ForeColor = Color.FromArgb(30, 30, 30)
-                        btn.FlatAppearance.BorderColor = Color.FromArgb(200, 200, 200)
-
-                    End If
 
                 ElseIf darkMode Then
 
@@ -831,6 +998,7 @@ Public Class Form1
                 End If
 
             End If
+
 
             If ctrl.HasChildren Then
 
